@@ -6,7 +6,7 @@ import SwiftUI
 // MARK: - Provider (who turns the raw transcript into the pasted text)
 
 enum Provider: String, CaseIterable, Identifiable {
-    case claudeAPI, openAIAPI, claudeCLI, codexCLI
+    case claudeAPI, openAIAPI, claudeCLI, codexCLI, ollama
     var id: String { rawValue }
 
     var title: String {
@@ -15,6 +15,7 @@ enum Provider: String, CaseIterable, Identifiable {
         case .openAIAPI: "OpenAI / Codex – API key"
         case .claudeCLI: "Claude Code CLI (signed in, no key)"
         case .codexCLI: "Codex CLI (signed in, no key)"
+        case .ollama: "Ollama – on this Mac (no key)"
         }
     }
 
@@ -22,7 +23,7 @@ enum Provider: String, CaseIterable, Identifiable {
         switch self {
         case .claudeAPI: "anthropic"
         case .openAIAPI: "openai"
-        case .claudeCLI, .codexCLI: nil
+        case .claudeCLI, .codexCLI, .ollama: nil
         }
     }
 
@@ -30,7 +31,7 @@ enum Provider: String, CaseIterable, Identifiable {
         switch self {
         case .claudeAPI: "ANTHROPIC_API_KEY"
         case .openAIAPI: "OPENAI_API_KEY"
-        case .claudeCLI, .codexCLI: nil
+        case .claudeCLI, .codexCLI, .ollama: nil
         }
     }
 
@@ -38,7 +39,7 @@ enum Provider: String, CaseIterable, Identifiable {
         switch self {
         case .claudeAPI: URL(string: "https://console.anthropic.com/settings/keys")
         case .openAIAPI: URL(string: "https://platform.openai.com/api-keys")
-        case .claudeCLI, .codexCLI: nil
+        case .claudeCLI, .codexCLI, .ollama: nil
         }
     }
 
@@ -46,7 +47,7 @@ enum Provider: String, CaseIterable, Identifiable {
         switch self {
         case .claudeCLI: "claude"
         case .codexCLI: "codex"
-        case .claudeAPI, .openAIAPI: nil
+        case .claudeAPI, .openAIAPI, .ollama: nil
         }
     }
 
@@ -57,6 +58,7 @@ enum Provider: String, CaseIterable, Identifiable {
         case .openAIAPI: "gpt-5-mini"
         case .claudeCLI: "haiku"
         case .codexCLI: ""
+        case .ollama: Ollama.recommended[0].name
         }
     }
 }
@@ -77,6 +79,20 @@ enum Settings {
     static func apiKey(for p: Provider) -> String? {
         if let env = p.keyEnvironment, let v = ProcessInfo.processInfo.environment[env], !v.isEmpty { return v }
         return p.keyAccount.flatMap(Keychain.get)
+    }
+
+    // Existing users (a provider is already chosen) keep Apple speech after an update; new installs start on Whisper.
+    static var speechEngine: SpeechEngine {
+        get { d.string(forKey: "speechEngine").flatMap(SpeechEngine.init(rawValue:)) ?? (provider == nil ? .whisper : .apple) }
+        set { d.set(newValue.rawValue, forKey: "speechEngine") }
+    }
+    static var whisperModel: WhisperModel {
+        get { d.string(forKey: "whisperModel").flatMap(WhisperModel.init(rawValue:)) ?? .turbo }
+        set { d.set(newValue.rawValue, forKey: "whisperModel") }
+    }
+    static var ollamaURL: String {
+        get { d.string(forKey: "ollamaURL") ?? Ollama.defaultURL }
+        set { d.set(newValue, forKey: "ollamaURL") }
     }
 
     static var inputLocale: String {
@@ -197,6 +213,9 @@ struct SettingsView: View {
     @State private var provider: Provider = Settings.provider ?? (CLI.path("claude") != nil ? .claudeCLI : .claudeAPI)
     @State private var apiKey = ""
     @State private var model = ""
+    @State private var speechEngine = Settings.speechEngine
+    @State private var whisperModel = Settings.whisperModel
+    @State private var ollamaURL = Settings.ollamaURL
     @State private var inputLocale = Settings.inputLocale
     @State private var outputLanguage = Settings.outputLanguage
     @State private var preferBuiltInMic = Settings.preferBuiltInMic
@@ -214,6 +233,20 @@ struct SettingsView: View {
                 Picker("Paste as", selection: $outputLanguage) {
                     ForEach(Settings.outputLanguages, id: \.self) { Text($0).tag($0) }
                 }
+                Picker("Speech to text", selection: $speechEngine) {
+                    ForEach(SpeechEngine.allCases) { Text($0.title).tag($0) }
+                }
+                if speechEngine == .whisper {
+                    Picker("Whisper model", selection: $whisperModel) {
+                        ForEach(WhisperModel.allCases) { Text($0.title).tag($0) }
+                    }
+                }
+                if speechEngine.isLocal {
+                    SpeechModelRow(engine: speechEngine, whisperModel: whisperModel, inputLocale: inputLocale)
+                }
+                if speechEngine.isLocal && provider == .ollama {
+                    Label("Everything stays on this Mac", systemImage: "lock.fill").foregroundStyle(.green).font(.callout)
+                }
                 Toggle("Use the Mac's built-in microphone", isOn: $preferBuiltInMic)
             }
             Section("Text processing") {
@@ -228,7 +261,11 @@ struct SettingsView: View {
                         Text(CLI.path(name) ?? "“\(name)” not found – install it and sign in").foregroundStyle(.secondary)
                     }
                 }
-                TextField("Model", text: $model, prompt: Text(provider.defaultModel.isEmpty ? "CLI default" : provider.defaultModel))
+                if provider == .ollama {
+                    OllamaSection(url: $ollamaURL, model: $model)
+                } else {
+                    TextField("Model", text: $model, prompt: Text(provider.defaultModel.isEmpty ? "CLI default" : provider.defaultModel))
+                }
             }
             Section("Permissions") {
                 let _ = permissionsTick
@@ -250,6 +287,8 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 480)
+        // Taller than the screen scrolls instead of running off it.
+        .frame(maxHeight: (NSScreen.main?.visibleFrame.height ?? 800) - 80)
         .onAppear { load() }
         .onChange(of: provider) { load() }
         .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in permissionsTick += 1 }
@@ -270,12 +309,16 @@ struct SettingsView: View {
     private func load() {
         apiKey = provider.keyAccount.flatMap(Keychain.get) ?? ""
         model = Settings.d.string(forKey: "model.\(provider.rawValue)") ?? ""
+        if provider == .ollama && model.isEmpty { model = provider.defaultModel }
     }
 
     private func save() {
         Settings.provider = provider
         if let account = provider.keyAccount { Keychain.set(apiKey.trimmingCharacters(in: .whitespacesAndNewlines), for: account) }
         if model.isEmpty { Settings.d.removeObject(forKey: "model.\(provider.rawValue)") } else { Settings.setModel(model, for: provider) }
+        Settings.speechEngine = speechEngine
+        Settings.whisperModel = whisperModel
+        Settings.ollamaURL = ollamaURL.trimmingCharacters(in: .whitespacesAndNewlines)
         Settings.inputLocale = inputLocale
         Settings.outputLanguage = outputLanguage
         Settings.preferBuiltInMic = preferBuiltInMic
@@ -308,7 +351,10 @@ final class SettingsWindow {
                 self?.onSaved()
                 self?.window?.close()
             })
+            // Without this the window can open with zero content height (preferredContentSize stays 0x0).
+            host.sizingOptions = [.preferredContentSize]
             let w = NSWindow(contentViewController: host)
+            w.setContentSize(host.view.fittingSize)
             w.title = "FnDictate Settings"
             w.styleMask = [.titled, .closable]
             w.isReleasedWhenClosed = false
@@ -316,6 +362,5 @@ final class SettingsWindow {
             window = w
         }
         NSApp.activate()
-        window?.makeKeyAndOrderFront(nil)
-    }
+        window?.makeKeyAndOrderFront(nil)    }
 }
