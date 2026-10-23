@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Installs FnDictate.app into ~/Applications and launches it.
+// Installs FnDictate.app into /Applications (or ~/Applications when /Applications is not writable) and launches it.
 //   npx github:<user>/fn-dictate            install or update
 //   npx github:<user>/fn-dictate uninstall  remove the app, its settings and its stored keys
 "use strict";
@@ -13,8 +13,30 @@ const APP_NAME = "FnDictate.app";
 const BUNDLE_ID = "com.igor.fndictate";
 const root = path.join(__dirname, "..");
 const zip = path.join(root, "dist", "FnDictate.app.zip");
-const appsDir = path.join(os.homedir(), "Applications");
-const target = path.join(appsDir, APP_NAME);
+const systemApps = "/Applications";
+const userApps = path.join(os.homedir(), "Applications");
+const installed = [systemApps, userApps].map((dir) => path.join(dir, APP_NAME));
+
+function writable(dir) {
+  try {
+    fs.accessSync(dir, fs.constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function remove(p) {
+  try {
+    fs.rmSync(p, { recursive: true, force: true });
+  } catch (e) {
+    console.warn(`  could not remove ${p}: ${e.message}`);
+  }
+}
+
+function pretty(p) {
+  return p.startsWith(os.homedir()) ? "~" + p.slice(os.homedir().length) : p;
+}
 
 function fail(message) {
   console.error(`\n✗ ${message}\n`);
@@ -40,17 +62,25 @@ function quit() {
 function install() {
   checkPlatform();
   if (!fs.existsSync(zip)) fail(`Missing ${zip}. Build it with ./release.sh first.`);
-  const updating = fs.existsSync(target);
+  const appsDir = writable(systemApps) ? systemApps : userApps;
+  const target = path.join(appsDir, APP_NAME);
+  const updating = installed.some((p) => fs.existsSync(p));
   quit();
   fs.mkdirSync(appsDir, { recursive: true });
-  fs.rmSync(target, { recursive: true, force: true });
+  // One copy only: an earlier install may sit in the other Applications folder.
+  for (const p of installed) remove(p);
   execFileSync("ditto", ["-x", "-k", zip, appsDir]);
   run("xattr", ["-dr", "com.apple.quarantine", target]);
   execFileSync("open", [target]);
 
   console.log(`
-✓ FnDictate ${updating ? "updated" : "installed"} in ~/Applications and started.
+✓ FnDictate ${updating ? "updated" : "installed"} and started: ${pretty(target)}
 `);
+  if (appsDir === userApps) {
+    console.log(`  /Applications is not writable for this account, so the app went to your own
+  Applications folder (Finder → Go → Home → Applications).
+`);
+  }
   if (!updating) {
     console.log(`Next:
   1. In the Settings window that opens, pick Claude or OpenAI/Codex and paste your
@@ -68,7 +98,7 @@ Settings live in the menu bar icon → Settings…
 
 function uninstall() {
   quit();
-  fs.rmSync(target, { recursive: true, force: true });
+  for (const p of installed) remove(p);
   run("defaults", ["delete", BUNDLE_ID]);
   for (const account of ["anthropic", "openai"]) {
     run("security", ["delete-generic-password", "-s", "FnDictate", "-a", account]);

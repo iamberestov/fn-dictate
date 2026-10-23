@@ -16,7 +16,7 @@ Needs a Mac with Apple silicon, macOS 26 or newer, and Node.js.
 npx github:iamberestov/fn-dictate
 ```
 
-This puts `FnDictate.app` in `~/Applications` and starts it. Run the same command again to update.
+This puts `FnDictate.app` in `/Applications` (or `~/Applications` if your account can't write there) and starts it. Run the same command again to update.
 
 ## Set up
 

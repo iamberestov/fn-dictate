@@ -4,9 +4,9 @@ set -euo pipefail
 cd "$(dirname "$0")"
 APP=build/FnDictate.app
 # The macOS 27 SDK makes SwiftUI's @State a macro whose plugin ships only with full Xcode,
-# so with Command Line Tools alone build against the newest 26.x SDK.
-if [ -z "${SDKROOT:-}" ] && [ "$(xcrun --show-sdk-version | cut -d. -f1)" -ge 27 ]; then
-  pick="$(ls -d "$(xcode-select -p)"/SDKs/MacOSX26.*.sdk 2>/dev/null | sort -V | tail -n1)"
+# so with Command Line Tools alone build against the newest 26.x SDK (full Xcode has the plugin).
+if [ -z "${SDKROOT:-}" ] && [[ "$(xcode-select -p)" == *CommandLineTools* ]] && [ "$(xcrun --show-sdk-version | cut -d. -f1)" -ge 27 ]; then
+  pick="$( (ls -d "$(xcode-select -p)"/SDKs/MacOSX26.*.sdk 2>/dev/null || true) | sort -V | tail -n1)"
   if [ -n "$pick" ]; then export SDKROOT="$pick"; echo "building against $pick"; fi
 fi
 swift build -c release --product FnDictate
