@@ -732,7 +732,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         installHotkeyWhenAllowed()
         settings.onSaved = { [weak self] in self?.refreshSpeechItem() }
         refreshSpeechItem()
-        if Settings.provider == nil || !Settings.languageChosen { settings.show() }
+        if Settings.provider == nil { settings.show() }
     }
 
     @objc private func openSettings() { settings.show() }

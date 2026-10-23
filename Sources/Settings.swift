@@ -80,19 +80,9 @@ enum Settings {
     }
 
     static var inputLocale: String {
-        get { d.string(forKey: "inputLocale") ?? systemInputLocale }
+        get { d.string(forKey: "inputLocale") ?? "ru-RU" }
         set { d.set(newValue, forKey: "inputLocale") }
     }
-    // Until the user picks, assume they speak the Mac's language: an exact match, then the same language, else US English.
-    static var systemInputLocale: String {
-        for preferred in Locale.preferredLanguages {
-            if let exact = inputLocales.first(where: { $0.id.caseInsensitiveCompare(preferred) == .orderedSame }) { return exact.id }
-            let code = Locale(identifier: preferred).language.languageCode?.identifier
-            if let same = inputLocales.first(where: { Locale(identifier: $0.id).language.languageCode?.identifier == code }) { return same.id }
-        }
-        return "en-US"
-    }
-    static var languageChosen: Bool { d.string(forKey: "inputLocale") != nil }
     static var outputLanguage: String {
         get { d.string(forKey: "outputLanguage") ?? "English (US)" }
         set { d.set(newValue, forKey: "outputLanguage") }
