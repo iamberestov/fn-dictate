@@ -708,7 +708,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setIcon("mic")
         let menu = NSMenu()
         menu.addItem(withTitle: "Hold Fn to dictate · Fn+Shift toggles · Esc cancels", action: nil, keyEquivalent: "")
-        speechItem = menu.addItem(withTitle: "", action: nil, keyEquivalent: "")
+        speechItem = menu.addItem(withTitle: "", action: #selector(openSettings), keyEquivalent: "")
+        speechItem.target = self
         lastItem = menu.addItem(withTitle: "Last: –", action: #selector(copyLast), keyEquivalent: "")
         lastItem.target = self
         permissionsItem = menu.addItem(withTitle: "", action: #selector(openPrivacy), keyEquivalent: "")
@@ -731,7 +732,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         installHotkeyWhenAllowed()
         settings.onSaved = { [weak self] in self?.refreshSpeechItem() }
         refreshSpeechItem()
-        if Settings.provider == nil { settings.show() }
+        if Settings.provider == nil || !Settings.languageChosen { settings.show() }
     }
 
     @objc private func openSettings() { settings.show() }
