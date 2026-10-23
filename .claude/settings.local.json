@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./build.sh)",
+      "Bash(dest=\"$HOME/Library/Application Support/FnDictate/models/models/argmaxinc/whisperkit-coreml\"; mkdir -p \"$dest\"; cp -c -R ~/Documents/huggingface/models/argmaxinc/whisperkit-coreml/openai_whisper-large-v3-v20240930_turbo \"$dest/\"; ls \"$dest\")"
+    ]
+  }
+}

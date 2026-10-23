@@ -1,0 +1,12 @@
+[
+  { "id": "ru-short", "lang": "ru", "text": "Привет, завтра в десять утра у нас встреча по проекту, пожалуйста, подготовь отчёт по продажам за прошлый квартал." },
+  { "id": "ru-numbers", "lang": "ru", "text": "Встреча в пятнадцать тридцать, переведи две тысячи пятьсот евро на счёт компании Миро до пятницы." },
+  { "id": "ru-tech", "lang": "ru", "text": "Задеплой сервис в staging, потом проверь логи в Coralogix и открой pull request на GitHub." },
+  { "id": "ru-long", "lang": "ru", "text": "Сегодня я хочу обсудить план на следующий месяц. Во-первых, нужно закончить миграцию базы данных и проверить, что все сервисы работают стабильно. Во-вторых, мы должны подготовить документацию для новых сотрудников и провести несколько обучающих встреч. И наконец, давайте не забудем про отпуск: двое из команды уйдут в начале июля." },
+  { "id": "ru-noisy", "lang": "ru", "note": "play music or a video in the background", "text": "Напомни мне позвонить в банк завтра утром и узнать, почему платёж до сих пор не прошёл." },
+  { "id": "en-short", "lang": "en", "text": "Please schedule a call with the design team tomorrow at ten thirty and share the agenda beforehand." },
+  { "id": "en-tech", "lang": "en", "text": "The Kubernetes pod keeps crashing because the Postgres connection pool is exhausted after the latest deployment." },
+  { "id": "en-long", "lang": "en", "text": "Here is the plan for the next sprint. First, we finish the migration and verify that every service is stable. Second, we write the onboarding documentation and run two training sessions. Finally, let's not forget that two people from the team will be on vacation in early July, so we need to plan the handover carefully." },
+  { "id": "uk-short", "lang": "uk", "text": "Добрий день, мені потрібно оновити документацію до понеділка, а потім надіслати її команді." },
+  { "id": "silence", "lang": "ru", "note": "stay silent for the whole clip; expected result is empty text", "text": "" }
+]

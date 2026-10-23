@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
-# Builds FnDictate.app next to this script (ad-hoc signed menu-bar agent).
+# Builds FnDictate.app next to this script (menu-bar agent) with SwiftPM; needs Swift 6.2 or newer.
 set -euo pipefail
 cd "$(dirname "$0")"
 APP=build/FnDictate.app
+# The macOS 27 SDK makes SwiftUI's @State a macro whose plugin ships only with full Xcode,
+# so with Command Line Tools alone build against the newest 26.x SDK.
+if [ -z "${SDKROOT:-}" ] && [ "$(xcrun --show-sdk-version | cut -d. -f1)" -ge 27 ]; then
+  pick="$(ls -d "$(xcode-select -p)"/SDKs/MacOSX26.*.sdk 2>/dev/null | sort -V | tail -n1)"
+  if [ -n "$pick" ]; then export SDKROOT="$pick"; echo "building against $pick"; fi
+fi
+swift build -c release --product FnDictate
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
-swiftc -O -swift-version 5 -target arm64-apple-macosx26.0 Sources/*.swift -o "$APP/Contents/MacOS/FnDictate"
+cp "$(swift build -c release --product FnDictate --show-bin-path)/FnDictate" "$APP/Contents/MacOS/FnDictate"
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
