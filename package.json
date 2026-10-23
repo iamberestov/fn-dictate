@@ -1,0 +1,22 @@
+{
+  "name": "fn-dictate",
+  "version": "0.2.0",
+  "description": "Hold Fn on a Mac, speak, release: your words are cleaned up, translated and pasted into the focused text field.",
+  "license": "MIT",
+  "bin": {
+    "fn-dictate": "bin/fn-dictate.js"
+  },
+  "files": [
+    "bin/",
+    "dist/FnDictate.app.zip"
+  ],
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}
