@@ -3,6 +3,8 @@
 import AppKit
 import AVFoundation
 import Speech
+import SwiftUI
+import ThinkingOrbsKit
 
 func logLine(_ message: String) {
     guard Settings.debugLog else { return }
@@ -554,50 +556,30 @@ final class WaveformView: NSView {
     }
 }
 
-// Three dots hopping in sequence; with Reduce Motion they pulse in opacity instead.
-final class DotsView: NSView {
-    private let dots = (0..<3).map { _ in CALayer() }
-    private let size: CGFloat = 5, gap: CGFloat = 4
+// The "composing" thinking orb (a dotted torus) while the transcript is processed; paused when hidden.
+final class OrbLoaderView: NSView {
+    private let size: CGFloat = 24
+    private lazy var host = NSHostingView(rootView: orb(paused: true))
 
-    override var intrinsicContentSize: NSSize { NSSize(width: 3 * size + 2 * gap, height: 16) }
+    override var intrinsicContentSize: NSSize { NSSize(width: size, height: size) }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
-        wantsLayer = true
-        for (i, dot) in dots.enumerated() {
-            dot.cornerRadius = size / 2
-            dot.backgroundColor = NSColor.labelColor.cgColor
-            dot.frame = CGRect(x: CGFloat(i) * (size + gap), y: 8 - size / 2, width: size, height: size)
-            layer?.addSublayer(dot)
-        }
+        host.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(host)
+        NSLayoutConstraint.activate([
+            host.leadingAnchor.constraint(equalTo: leadingAnchor), host.trailingAnchor.constraint(equalTo: trailingAnchor),
+            host.topAnchor.constraint(equalTo: topAnchor), host.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    override func viewDidChangeEffectiveAppearance() {
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            dots.forEach { $0.backgroundColor = NSColor.labelColor.cgColor }
-        }
-    }
+    func start() { host.rootView = orb(paused: false) }
+    func stop() { host.rootView = orb(paused: true) }
 
-    func start() {
-        let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        let sine = CAMediaTimingFunction(controlPoints: 0.37, 0, 0.63, 1)
-        let now = CACurrentMediaTime()
-        for (i, dot) in dots.enumerated() {
-            dot.removeAllAnimations()
-            let a = CAKeyframeAnimation(keyPath: reduce ? "opacity" : "transform.translation.y")
-            a.values = reduce ? [0.35, 1, 0.35] : [0, 4, 0, 0]
-            a.keyTimes = reduce ? [0, 0.5, 1] : [0, 0.25, 0.5, 1]
-            a.timingFunctions = reduce ? [sine, sine] : [sine, sine, sine]
-            a.duration = reduce ? 1.2 : 1.0
-            a.repeatCount = .infinity
-            a.beginTime = now + Double(i) * 0.14
-            a.fillMode = .backwards
-            dot.add(a, forKey: "loader")
-        }
+    private func orb(paused: Bool) -> AnyView {
+        AnyView(ThinkingOrb(state: .composing, size: .px20, paused: paused, displaySize: Double(size)).frame(width: size, height: size))
     }
-
-    func stop() { dots.forEach { $0.removeAllAnimations() } }
 }
 
 final class Pill {
@@ -607,7 +589,7 @@ final class Pill {
     private let glass = NSGlassEffectView()
     private let stack = NSStackView()
     private let wave = WaveformView()
-    private let dots = DotsView()
+    private let dots = OrbLoaderView()
     private let icon = NSImageView()
     private let label = NSTextField(labelWithString: "")
     private var state: PillState?
